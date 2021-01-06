@@ -1,0 +1,319 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "appServiceName": {
+            "type": "String",
+            "minLength": 3,
+            "metadata": {
+                "description": "Azure App Service name"
+            }
+        },
+        "appServicePlanName": {
+            "type": "string",
+            "metadata": {
+                "description": "Azure App ServicePlan name"
+            }
+        },
+        "appServicePlanSkuName": {
+        "type": "string",
+        "allowedValues": [
+            //name  Tier          Full name
+            "F1",   //Free        an F1 Free
+            "D1",   //Shared      an D1 Shared
+            "B1",   //Basic       an B1 Basic
+            "B2",   //Basic       an B2 Basic
+            "B3",   //Basic       an B3 Basic
+            "S1",   //Standard    an S1 Standard
+            "S2",   //Standard    an S2 Standard
+            "S3",   //Standard    an S3 Standard
+            "P1",   //Premium     an P1 Premium
+            "P2",   //Premium     an P2 Premium
+            "P3",   //Premium     an P3 Premium
+            "P1V2", //PremiumV2   an P1V2 PremiumV2
+            "P2V2", //PremiumV2   an P2V2 PremiumV2
+            "P3V2" //PremiumV2   an P3V2 PremiumV2
+            ]
+        },
+        "appInsightName": {
+            "type": "String"
+        },
+        "storageAccountName": {
+            "type": "String",
+            "minLength": 3
+        },
+        "storageAccountType": {
+            "type": "string",
+            "allowedValues": [
+                "Standard_LRS",
+                "Standard_GRS",
+                "Standard_ZRS",
+                "Premium_LRS"
+            ],
+            "metadata": {
+                "description": "Storage Account type"
+            }
+        },
+        "sqlserverName": {
+            "type": "string",
+            "metadata": {
+                "description": "SQL Server name"
+            }
+        },
+        "databaseEdition": {
+            "type": "string",
+            "allowedValues": [
+                "Basic",
+                "Standard",
+                "Premium"
+            ]
+        },
+        "databaseServiceObjectiveName": {
+            "type": "string",
+            "allowedValues": [
+                "Basic",
+                "S0",
+                "S1",
+                "S2",
+                "P1",
+                "P2",
+                "P3"
+            ]
+        },
+        "sqlAdminLogin": {
+            "type": "string",
+            "metadata": {
+                "description": "The admin user of the SQL Server"
+            }
+        },
+        "sqlAdminPassword": {
+            "type": "securestring",
+            "metadata": {
+                "description": "The password of the admin user of the SQL Server"
+            }
+        },
+        "databaseName": {
+            "type": "string",
+            "metadata": {
+                "description": "SQL Server database name"
+            }
+        },
+        "sendgridAccountName": {
+            "type": "string",
+            "metadata": {
+                "description": "The name of your new SendGrid account."
+            }
+        },
+        "sendgridPassword": {
+            "type": "securestring",
+            "metadata": {
+                "description": "The password to use for your new SendGrid account."
+            }
+        }
+    },
+    "functions": [],
+    "variables": {},
+    "resources": [
+        {
+            "name": "[parameters('appServicePlanName')]",
+            "type": "Microsoft.Web/serverfarms",
+            "apiVersion": "2018-02-01",
+            "location": "[resourceGroup().location]",
+            "sku": {
+                "name": "[parameters('appServicePlanSkuName')]",
+                "capacity": 1
+            },
+            "properties": {
+                "name": "[parameters('appServicePlanName')]"
+            }
+        },
+        {
+            "name": "[parameters('appServiceName')]",
+            "type": "Microsoft.Web/sites",
+            "apiVersion": "2016-08-01",
+            "location": "[resourceGroup().location]",
+            "dependsOn": [
+                "[resourceId('Microsoft.Web/serverfarms', parameters('appServicePlanName'))]",
+                "[resourceId('Microsoft.Sql/servers', parameters('sqlserverName'))]",
+                "[resourceId('Microsoft.Insights/components', parameters('appInsightName'))]"
+            ],
+            "properties": {
+                "name": "[parameters('appServiceName')]",
+                "serverFarmId": "[resourceId('Microsoft.Web/serverfarms', parameters('appServicePlanName'))]",
+                "alwaysOn": true,
+                "webSocketsEnabled": true,
+                "siteConfig": {
+                    "metadata": [
+                        {
+                            "name": "CURRENT_STACK",
+                            "value": "dotnetcore"
+                        }
+                    ],
+                    "appSettings": [
+                        {
+                            "name": "APPINSIGHTS_INSTRUMENTATIONKEY",
+                            "value": "[reference(concat('microsoft.insights/components/', parameters('appInsightName'))).InstrumentationKey]"
+                        },
+                        {
+                            "name": "APPLICATIONINSIGHTS_CONNECTION_STRING",
+                            "value": "[reference(concat('microsoft.insights/components/', parameters('appInsightName'))).ConnectionString]"
+                        },
+                        {
+                            "name": "APPINSIGHTS_PROFILERFEATURE_VERSION",
+                            "value": "1.0.0"
+                        },
+                        {
+                            "name": "APPINSIGHTS_SNAPSHOTFEATURE_VERSION",
+                            "value": "1.0.0"
+                        },
+                        {
+                            "name": "ApplicationInsightsAgent_EXTENSION_VERSION",
+                            "value": "~2"
+                        },
+                        {
+                            "name": "DiagnosticServices_EXTENSION_VERSION",
+                            "value": "~3"
+                        },
+                        {
+                            "name": "XDT_MicrosoftApplicationInsights_Mode",
+                            "value": "recommended"
+                        },
+                        {
+                            "name": "InstrumentationEngine_EXTENSION_VERSION",
+                            "value": "disabled"
+                        },
+                        {
+                            "name": "SnapshotDebugger_EXTENSION_VERSION",
+                            "value": "disabled"
+                        },
+                        {
+                            "name": "XDT_MicrosoftApplicationInsights_BaseExtensions",
+                            "value": "disabled"
+                        },
+                        {
+                            "name": "XDT_MicrosoftApplicationInsights_PreemptSdk",
+                            "value": "disabled"
+                        }
+                    ]
+                }
+            },
+            "resources": [
+                {
+                    "apiVersion": "2018-11-01",
+                    "type": "siteextensions",
+                    "name": "Microsoft.ApplicationInsights.AzureWebSites",
+                    "dependsOn": [
+                        "[resourceId('Microsoft.Web/sites', parameters('appServiceName'))]"
+                    ]
+                }
+            ]
+        },
+        {
+            "name": "[parameters('sqlserverName')]",
+            "type": "Microsoft.Sql/servers",
+            "location": "[resourceGroup().location]",
+            "tags": {
+                "displayName": "SqlServer"
+            },
+            "apiVersion": "2014-04-01",
+            "properties": {
+                "administratorLogin": "[parameters('sqlAdminLogin')]",
+                "administratorLoginPassword": "[parameters('sqlAdminPassword')]",
+                "version": "12.0"
+            },
+            "resources": [
+                {
+                    "name": "[parameters('databaseName')]",
+                    "type": "databases",
+                    "location": "[resourceGroup().location]",
+                    "tags": {
+                        "displayName": "Database"
+                    },
+                    "apiVersion": "2014-04-01",
+                    "dependsOn": [
+                        "[parameters('sqlserverName')]"
+                    ],
+                    "properties": {
+                        "collation": "SQL_Latin1_General_CP1_CI_AS",
+                        "maxSizeBytes": "1073741824",
+                        "edition": "[parameters('databaseEdition')]",
+                        "requestedServiceObjectiveName": "[parameters('databaseServiceObjectiveName')]"
+                    }
+                },
+                {
+                    "type": "firewallrules",
+                    "apiVersion": "2014-04-01",
+                    "dependsOn": [
+                        "[parameters('sqlserverName')]"
+                    ],
+                    "location": "[resourceGroup().location]",
+                    "name": "AllowAllWindowsAzureIps",
+                    "properties": {
+                        "endIpAddress": "0.0.0.0",
+                        "startIpAddress": "0.0.0.0"
+                    }
+                }
+            ]
+        },
+        {
+            "apiVersion": "2015-05-01",
+            "name": "[parameters('appInsightName')]",
+            "type": "Microsoft.Insights/components",
+            "location": "[resourceGroup().location]",
+            "properties": {
+                "ApplicationId": "[parameters('appServiceName')]",
+                "Application_Type": "web"
+            }
+        },
+        {
+            "type": "Microsoft.Storage/storageAccounts",
+            "sku": {
+                "name": "[parameters('storageAccountType')]"
+            },
+            "kind": "Storage",
+            "name": "[parameters('storageAccountName')]",
+            "apiVersion": "2018-07-01",
+            "location": "[resourceGroup().location]",
+            "tags": {},
+            "properties": {
+                "networkAcls": {
+                    "bypass": "AzureServices",
+                    "virtualNetworkRules": [],
+                    "ipRules": [],
+                    "defaultAction": "Allow"
+                },
+                "supportsHttpsTrafficOnly": false,
+                "encryption": {
+                    "services": {
+                        "file": {
+                            "enabled": true
+                        },
+                        "blob": {
+                            "enabled": true
+                        }
+                    },
+                    "keySource": "Microsoft.Storage"
+                }
+            },
+            "dependsOn": []
+        },
+        {
+            "name": "[parameters('sendgridAccountName')]",
+            "type": "Sendgrid.Email/accounts",
+            "apiVersion": "2015-01-01",
+            "location": "[resourceGroup().location]",
+            "plan": {
+                "name": "free",
+                "publisher": "Sendgrid",
+                "product": "sendgrid_azure",
+                "promotionCode": ""
+            },
+            "properties": {
+                "password": "[parameters('sendgridPassword')]",
+                "acceptMarketingEmails": false,
+                "email": ""
+            }
+        }
+    ],
+    "outputs": {}
+}
